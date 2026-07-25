@@ -1,7 +1,17 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+import os
 
 app = FastAPI()
+
+html_path = "index.html"
+
+@app.get("/")
+async def get():
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    return HTMLResponse("index.html not found", status_code=404)
 
 class ConnectionManager:
     def __init__(self):
@@ -20,18 +30,13 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.get("/")
-async def get():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(f.read())
-
-@app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: int):
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast(f"Client #{client_id}: {data}")
+            await manager.broadcast(f"Client: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        await manager.broadcast(f"Client #{client_id} left the chat")
+        await manager.broadcast("A client left the chat.")
